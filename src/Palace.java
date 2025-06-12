@@ -1,42 +1,44 @@
-
-
-public final class Palace implements Asset {
+public class Palace implements Asset {
+    private final String name;
     private final double income;
     private final String streetName;
-    private final boolean vip;
+    private final boolean isVip;
 
-    public Palace(double income, String streetName, boolean vip) {
-        if (income < 0) throw new IllegalArgumentException("Income cannot be negative");
-        if (streetName == null) throw new NullPointerException("Street name cannot be null");
+    public Palace(String name, double income, String streetName, boolean isVip) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Palace name cannot be null or empty.");
+        }
+        if (income < 0) {
+            throw new IllegalArgumentException("Income cannot be negative.");
+        }
+        if (streetName == null || streetName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Street name cannot be null or empty.");
+        }
+
+        this.name = name;
         this.income = income;
         this.streetName = streetName;
-        this.vip = vip;
+        this.isVip = isVip;
     }
 
     @Override
-    public double income() { return income; }
+    public double getIncome() { return income; }
 
     @Override
-    public String streetName() { return streetName; }
+    public String getStreetName() { return streetName; }
 
     @Override
-    public double calculateIncomeWithTax() {
-        double threshold = vip ? 100_000 : 50_000;
-        return (income > threshold) ? income * 0.95 : income;
-    }
+    public double calculateIncomeWithTax() { return isVip ? income * 1.15 : income * 1.10; }
 
     @Override
     public boolean isPalace() { return true; }
 
-    @Override
-    public String toString() {
-        return streetName + " = " + income + " (Palace" + (vip ? " VIP)" : ")");
-    }
+    public String getName() { return name; }
+
+    public boolean isVip() { return isVip; }
 
     @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof Palace)) return false;
-        Palace other = (Palace) obj;
-        return streetName.equals(other.streetName) && vip == other.vip;
+    public String toString() {
+        return "Palace{name='" + name + "', VIP=" + isVip + ", income=" + income + ", street='" + streetName + "'}";
     }
 }

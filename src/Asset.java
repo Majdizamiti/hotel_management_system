@@ -1,8 +1,9 @@
 public interface Asset {
-    double income();
-    String streetName();
+    double getIncome();
+    String getStreetName();
     double calculateIncomeWithTax();
     boolean isPalace();
     @Override
     String toString();
 }
+

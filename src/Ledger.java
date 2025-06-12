@@ -1,44 +1,51 @@
+import java.util.ArrayList;
+import java.util.List;
 
-
-import java.util.*;
-
-public final class Ledger {
+public class Ledger {
     private final List<Asset> assets = new ArrayList<>();
 
+    // Add an asset to the ledger
     public void add(Asset asset) {
-        assets.add(Objects.requireNonNull(asset));
+        if (asset == null) throw new IllegalArgumentException("Cannot add a null asset!");
+        assets.add(asset);
     }
 
-    public void remove(Asset asset) {
-        if (!assets.remove(asset)) {
-            throw new IllegalStateException("Asset not found in ledger");
-        }
+    // Remove an asset by name
+    public boolean removeByName(String name) {
+        return assets.removeIf(asset -> asset.toString().contains(name));
     }
 
+    // Search for an asset by name
+    public Asset findByName(String name) {
+        return assets.stream()
+                .filter(asset -> asset.toString().contains(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    // Calculate total income (optionally with tax)
     public double totalIncome(boolean withTax) {
         return assets.stream()
-                .mapToDouble(a -> withTax ? a.calculateIncomeWithTax() : a.income())
+                .mapToDouble(asset -> withTax ? asset.calculateIncomeWithTax() : asset.getIncome())
                 .sum();
     }
 
-    public int numberOfPalaces() {
-        return (int) assets.stream().filter(Asset::isPalace).count();
+    // Count palaces in the ledger
+    public long numberOfPalaces() {
+        return assets.stream().filter(Asset::isPalace).count();
     }
 
-    public Map<String, List<Asset>> assetsByStreetName() {
-        Map<String, List<Asset>> map = new HashMap<>();
-        assets.forEach(a -> map.computeIfAbsent(a.streetName(), k -> new ArrayList<>()).add(a));
-        return map;
-    }
-
-    public static boolean sameAssets(Ledger ledger1, Ledger ledger2) {
-        return new HashSet<>(ledger1.assets).equals(new HashSet<>(ledger2.assets));
-    }
-
+    // Display all assets
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        assets.forEach(a -> sb.append(a).append("\n"));
+        if (assets.isEmpty()) return "No assets in the ledger.";
+        StringBuilder sb = new StringBuilder("=== LEDGER ===\n");
+        assets.forEach(asset -> sb.append(asset).append("\n"));
         return sb.toString();
+    }
+
+    // Retrieve all assets (for display purposes)
+    public List<Asset> getAssets() {
+        return new ArrayList<>(assets);
     }
 }

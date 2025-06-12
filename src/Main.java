@@ -2,9 +2,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class Main {
     private static final Ledger ledger = new Ledger();
@@ -23,24 +22,16 @@ public class Main {
         frame.setSize(1000, 600);
 
         JTabbedPane tabbedPane = new JTabbedPane();
-
-        // Tab 1: Admin (Asset Management)
         tabbedPane.addTab("Admin", buildAdminPanel());
-
-        // Tab 2: Clients
         tabbedPane.addTab("Clients", buildClientPanel());
-
-        // Tab 3: Rooms
         tabbedPane.addTab("Rooms", buildRoomPanel());
-
-        // Tab 4: Reservations
         tabbedPane.addTab("Reservations", buildReservationPanel());
 
         frame.add(tabbedPane);
         frame.setVisible(true);
     }
 
-    // ====================== ADMIN PANEL (HOTELS/PALACES) ======================
+    // ================= ADMIN PANEL =================
     private static JPanel buildAdminPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         JTextArea outputArea = new JTextArea();
@@ -48,13 +39,16 @@ public class Main {
         panel.add(new JScrollPane(outputArea), BorderLayout.CENTER);
 
         // Input fields
-        JPanel inputPanel = new JPanel(new GridLayout(3, 2, 5, 5));
+        JPanel inputPanel = new JPanel(new GridLayout(4, 2, 5, 5)); // Now 4 rows
         JComboBox<String> assetType = new JComboBox<>(new String[]{"Hotel", "Palace", "Palace VIP"});
+        JTextField nameField = new JTextField(); // New name field
         JTextField incomeField = new JTextField();
         JTextField streetField = new JTextField();
 
         inputPanel.add(new JLabel("Type:"));
         inputPanel.add(assetType);
+        inputPanel.add(new JLabel("Name:")); // New field
+        inputPanel.add(nameField);
         inputPanel.add(new JLabel("Income:"));
         inputPanel.add(incomeField);
         inputPanel.add(new JLabel("Street:"));
@@ -63,45 +57,68 @@ public class Main {
         // Buttons
         JPanel buttonPanel = new JPanel();
         JButton addButton = new JButton("Add Asset");
+        JButton deleteButton = new JButton("Delete Asset");
+        JButton searchButton = new JButton("Search by Name");
         JButton showButton = new JButton("Show Ledger");
-        JButton totalNoTaxButton = new JButton("Total Income (No Tax)");
-        JButton totalWithTaxButton = new JButton("Total Income (With Tax)");
-        JButton countPalacesButton = new JButton("Count Palaces");
 
+        // Adding new asset
         addButton.addActionListener(e -> {
             try {
+                String name = nameField.getText().trim();
+                if (name.isEmpty()) throw new IllegalArgumentException("Name cannot be empty!");
                 double income = Double.parseDouble(incomeField.getText());
                 String street = streetField.getText();
                 Asset asset;
+
                 switch (assetType.getSelectedIndex()) {
-                    case 0 -> asset = new Hotel(income, street);
-                    case 1 -> asset = new Palace(income, street, false);
-                    case 2 -> asset = new Palace(income, street, true);
+                    case 0 -> asset = new Hotel(name, income, street);
+                    case 1 -> asset = new Palace(name, income, street, false);
+                    case 2 -> asset = new Palace(name, income, street, true);
                     default -> throw new IllegalArgumentException("Invalid type");
                 }
+
                 ledger.add(asset);
-                outputArea.append("Added: " + asset + "\n");
+                outputArea.append("✅ Added: " + asset + "\n");
             } catch (Exception ex) {
                 outputArea.append("❌ Error: " + ex.getMessage() + "\n");
             }
         });
 
-        showButton.addActionListener(e -> outputArea.setText("=== LEDGER ===\n" + ledger));
-        totalNoTaxButton.addActionListener(e -> outputArea.append("Total Income (No Tax): " + ledger.totalIncome(false) + "\n"));
-        totalWithTaxButton.addActionListener(e -> outputArea.append("Total Income (With Tax): " + ledger.totalIncome(true) + "\n"));
-        countPalacesButton.addActionListener(e -> outputArea.append("Palaces Count: " + ledger.numberOfPalaces() + "\n"));
+        // Delete asset by name
+        deleteButton.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            boolean removed = ledger.removeByName(name);
+            outputArea.append(removed ? "✅ Deleted: " + name + "\n" : "❌ Asset not found!\n");
+        });
+
+        // Search asset by name
+        searchButton.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            ledger.getAssets().stream()
+                    .filter(asset -> asset.toString().contains(name))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            asset -> outputArea.append("🔍 Found: " + asset + "\n"),
+                            () -> outputArea.append("❌ Asset not found!\n"));
+        });
+
+        // Show ledger (all hotels, palaces, and palace VIPs)
+        showButton.addActionListener(e -> {
+            outputArea.setText("=== LEDGER ===\n");
+            ledger.getAssets().forEach(asset -> outputArea.append(asset + "\n"));
+        });
 
         buttonPanel.add(addButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(searchButton);
         buttonPanel.add(showButton);
-        buttonPanel.add(totalNoTaxButton);
-        buttonPanel.add(totalWithTaxButton);
-        buttonPanel.add(countPalacesButton);
 
         panel.add(inputPanel, BorderLayout.NORTH);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
     }
+
 
     // ====================== CLIENT MANAGEMENT ======================
     private static JPanel buildClientPanel() {
@@ -130,13 +147,23 @@ public class Main {
         addButton.addActionListener(e -> {
             String name = nameField.getText().trim();
             String email = emailField.getText().trim();
+
             if (name.isEmpty() || email.isEmpty()) {
                 outputArea.append("❌ Name/Email cannot be empty!\n");
                 return;
             }
+
+            // Check if the client already exists
+            boolean exists = clients.stream().anyMatch(c -> c.getEmail().equals(email));
+            if (exists) {
+                outputArea.append("❌ Client with email " + email + " already exists!\n");
+                return;
+            }
+
             clients.add(new Client(name, email));
             outputArea.append("✅ Added: " + name + " (" + email + ")\n");
         });
+
 
         deleteButton.addActionListener(e -> {
             String email = emailField.getText().trim();
@@ -202,12 +229,21 @@ public class Main {
                 int number = Integer.parseInt(numberField.getText());
                 String type = typeField.getText().trim();
                 double price = Double.parseDouble(priceField.getText());
+
+                // Check if the room already exists
+                boolean exists = rooms.stream().anyMatch(r -> r.getNumber() == number);
+                if (exists) {
+                    outputArea.append("❌ Room #" + number + " already exists!\n");
+                    return;
+                }
+
                 rooms.add(new Room(number, type, price));
                 outputArea.append("✅ Added: Room #" + number + "\n");
             } catch (Exception ex) {
                 outputArea.append("❌ Invalid input!\n");
             }
         });
+
 
         deleteButton.addActionListener(e -> {
             try {
@@ -249,7 +285,6 @@ public class Main {
         return panel;
     }
 
-    // ====================== RESERVATION SYSTEM ======================
     private static JPanel buildReservationPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         JTextArea outputArea = new JTextArea();
@@ -257,14 +292,20 @@ public class Main {
         panel.add(new JScrollPane(outputArea), BorderLayout.CENTER);
 
         // Input fields
-        JPanel inputPanel = new JPanel(new GridLayout(5, 2, 5, 5));
+        JPanel inputPanel = new JPanel(new GridLayout(6, 2, 5, 5));
         JTextField clientEmailField = new JTextField();
+        JComboBox<String> propertyTypeCombo = new JComboBox<>(new String[]{"Hotel", "Palace", "Palace VIP"});
+        JTextField hotelNameField = new JTextField(); // New field for hotel name
         JTextField roomNumberField = new JTextField();
         JTextField checkInField = new JTextField(LocalDate.now().toString());
         JTextField checkOutField = new JTextField(LocalDate.now().plusDays(1).toString());
 
         inputPanel.add(new JLabel("Client Email:"));
         inputPanel.add(clientEmailField);
+        inputPanel.add(new JLabel("Select Property Type:"));
+        inputPanel.add(propertyTypeCombo);
+        inputPanel.add(new JLabel("Name of Hotel/Palace:")); // New field
+        inputPanel.add(hotelNameField);
         inputPanel.add(new JLabel("Room #:"));
         inputPanel.add(roomNumberField);
         inputPanel.add(new JLabel("Check-In (YYYY-MM-DD):"));
@@ -278,23 +319,29 @@ public class Main {
         JButton showReservationsButton = new JButton("Show All Reservations");
         JButton showAvailableButton = new JButton("Show Available Rooms");
 
+        // Booking logic with hotel validation
         bookButton.addActionListener(e -> {
             try {
                 String email = clientEmailField.getText().trim();
-                int roomNumber = Integer.parseInt(roomNumberField.getText());
-                LocalDate checkIn = LocalDate.parse(checkInField.getText());
-                LocalDate checkOut = LocalDate.parse(checkOutField.getText());
-
-                // Validate dates
-                if (checkOut.isBefore(checkIn) || checkOut.isEqual(checkIn)) {
-                    throw new ClientException("Check-out date must be after check-in date!");
-                }
+                String hotelName = hotelNameField.getText().trim();
+                int roomNumber = Integer.parseInt(roomNumberField.getText().trim());
+                LocalDate checkIn = LocalDate.parse(checkInField.getText().trim());
+                LocalDate checkOut = LocalDate.parse(checkOutField.getText().trim());
 
                 Client client = clients.stream()
                         .filter(c -> c.getEmail().equals(email))
                         .findFirst()
                         .orElseThrow(() -> new ClientException("Client not found with email: " + email));
+                if (hotelName.isEmpty()) throw new ClientException("Hotel name cannot be empty!");
+                if (checkOut.isBefore(checkIn) || checkOut.isEqual(checkIn)) throw new ClientException("Check-out must be after check-in!");
 
+                // Check if the selected hotel exists in ledger
+                boolean propertyExists = ledger.getAssets().stream()
+                        .anyMatch(asset -> asset.toString().contains(hotelName));
+
+                if (!propertyExists) throw new ClientException("Hotel/Palace '" + hotelName + "' does not exist in the ledger!");
+
+                // Ensure room exists
                 Room room = rooms.stream()
                         .filter(r -> r.getNumber() == roomNumber)
                         .findFirst()
@@ -305,14 +352,11 @@ public class Main {
                         .anyMatch(r -> r.getRoom().getNumber() == roomNumber &&
                                 !(checkOut.isBefore(r.getCheckIn()) || checkIn.isAfter(r.getCheckOut())));
 
-                if (isBooked) {
-                    throw new ClientException("Room #" + roomNumber + " is already booked for the selected dates!");
-                }
+                if (isBooked) throw new ClientException("Room #" + roomNumber + " is already booked!");
 
-                Reservation reservation = new Reservation(client, room, checkIn, checkOut);
-                reservations.add(reservation);
-                outputArea.append("✅ Booked: " + reservation + "\n");
-                outputArea.append("💰 Total: " + reservation.getTotalPrice() + "€\n\n");
+                reservations.add(new Reservation(new Client(email, email), room, checkIn, checkOut, hotelName));
+                outputArea.append("✅ Room #" + roomNumber + " booked successfully in " + hotelName + "!\n");
+
             } catch (DateTimeParseException ex) {
                 outputArea.append("❌ Invalid date format! Use YYYY-MM-DD.\n");
             } catch (ClientException ex) {
@@ -321,6 +365,7 @@ public class Main {
                 outputArea.append("❌ Unexpected Error: " + ex.getMessage() + "\n");
             }
         });
+
 
         showReservationsButton.addActionListener(e -> {
             outputArea.setText("=== RESERVATIONS ===\n");
@@ -338,8 +383,6 @@ public class Main {
                                 .noneMatch(res -> res.getRoom().getNumber() == room.getNumber() &&
                                         !(checkOut.isBefore(res.getCheckIn()) || checkIn.isAfter(res.getCheckOut()))))
                         .forEach(room -> outputArea.append(room + "\n"));
-            } catch (DateTimeParseException ex) {
-                outputArea.append("❌ Invalid date format! Use YYYY-MM-DD.\n");
             } catch (Exception ex) {
                 outputArea.append("❌ Error: " + ex.getMessage() + "\n");
             }
@@ -354,4 +397,5 @@ public class Main {
 
         return panel;
     }
+
 }
